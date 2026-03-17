@@ -1,0 +1,17 @@
+@import url('https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;500;700&display=swap');
+
+* {
+    font-family: 'Ubuntu', sans-serif;
+}
+
+.counter {
+    font-variant-numeric: tabular-nums;
+}
+
+#Shhh {
+    font-size: 12rem;
+    color: #dc3545; /* Bootstrap's red */
+    text-align: center;
+    margin-top: 1rem;
+    transition: all 0.3s ease;
+}

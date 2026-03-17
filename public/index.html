@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <!-- Bootstrap 5 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+
+<body class="bg-light text-dark">
+    <div class="container py-4">
+        <h1 id="Shhh"></h1>
+
+        
+        <div class="text-center mb-3">
+            <output id="volumeOutput" class="h5">0.00% (atual)</output>
+            <output id="averageOutput" class="d-block text-muted">Média (1s): 0.00% - aceitável</output>
+        </div>
+        
+        <div class="d-flex justify-content-center align-items-end flex-nowrap gap-3 mb-4" style="flex-wrap: nowrap;">
+            <div class="d-flex flex-column align-items-center" style="flex: 0 0 auto;">
+                <div class="border rounded" style="width: 56px; height: 220px; position: relative; background: #f8f9fa;">
+                    <div id="volumeBar" style="width: 100%; height: 0%; background-color: hsl(120, 100%, 50%); position: absolute; bottom: 0; transition: height 0.2s ease, background-color 0.2s ease;"></div>
+                </div>
+                <small class="mt-2 text-muted">Instantâneo</small>
+            </div>
+            <div class="d-flex flex-column align-items-center" style="flex: 0 0 auto;">
+                <div class="border rounded" style="width: 56px; height: 220px; position: relative; background: #f8f9fa;">
+                    <div id="averageBar" style="width: 100%; height: 0%; background-color: hsl(120, 100%, 50%); position: absolute; bottom: 0; transition: height 0.2s ease, background-color 0.2s ease;"></div>
+                </div>
+                <small class="mt-2 text-muted">Média</small>
+            </div>
+        </div>
+        
+        <div class="card mb-4" style="width: 100%; max-width: 100%;">
+            <div class="card-body py-2" style="height: 160px;">
+                <h2 class="h6 mb-2">Histórico (últimas 2h)</h2>
+                <canvas id="historyChart" style="width: 100%; height: 100%;"></canvas>
+            </div>
+        </div>
+
+        <details class="mb-4">
+            <summary class="fw-semibold">Configurações</summary>
+            <div class="row gx-3 gy-2 mt-2">
+                <div class="col-12 col-md-6">
+                    <label for="volumeFunction" class="form-label">Função de Volume</label>
+                    <select id="volumeFunction" class="form-select">
+                        <option value="linear">Linear</option>
+                        <option value="quadratic">Quadrática</option>
+                        <option value="exponential">Exponencial</option>
+                        <option value="logarithmic">Logarítmica</option>
+                        <option value="geometric">Geométrica</option>
+                        <option value="custom">Personalizada</option>
+                    </select>
+                </div>
+                <div class="col-12 col-md-6">
+                    <label for="updateInterval" class="form-label">Intervalo de Atualização (ms)</label>
+                    <select id="updateInterval" class="form-select">
+                        <option value="10">10</option>
+                        <option value="20">20</option>
+                        <option value="30">30</option>
+                        <option value="40">40</option>
+                        <option value="50">50</option>
+                        <option value="60">60</option>
+                        <option value="70">70</option>
+                        <option value="80">80</option>
+                        <option value="90">90</option>
+                        <option value="100" selected>100</option>
+                    </select>
+                </div>
+                <div class="col-12 col-md-6">
+                    <label for="noiseThreshold" class="form-label">Limite aceitável (%)</label>
+                    <input id="noiseThreshold" type="number" min="0" max="100" step="1" value="70" class="form-control">
+                </div>
+                <div class="col-12 col-md-6">
+                    <label for="averageWindow" class="form-label">Média dos últimos (s)</label>
+                    <select id="averageWindow" class="form-select">
+                        <option value="1">1</option>
+                        <option value="2">2</option>
+                        <option value="3">3</option>
+                        <option value="4">4</option>
+                        <option value="5">5</option>
+                        <option value="6">6</option>
+                        <option value="7">7</option>
+                        <option value="8">8</option>
+                        <option value="9">9</option>
+                        <option value="10">10</option>
+                    </select>
+                </div>
+                <div class="col-12 col-md-6">
+                    <label for="volumeGain" class="form-label">Ganho</label>
+                    <select id="volumeGain" class="form-select">
+                        <option value="100">100%</option>
+                        <option value="110">110%</option>
+                        <option value="120">120%</option>
+                        <option value="130">130%</option>
+                        <option value="140">140%</option>
+                        <option value="150">150%</option>
+                    </select>
+                </div>
+            </div>
+        </details>
+    </div>
+    <script>
+        // Função para calcular o nível RMS (Root Mean Square) do áudio
+        function calculateRmsLevel(dataArray) {
+            let sumSquares = 0.0;
+            for (const amplitude of dataArray) {
+                sumSquares += amplitude * amplitude * (parseFloat(document.getElementById('volumeGain').value) / 100); // Apply gain
+            }
+            // RMS is the square root of the mean of the squares of the samples
+            return Math.sqrt(sumSquares / dataArray.length);
+        }
+
+        // Function to apply selected volume transformation
+        function applyVolumeFunction(rms, func) {
+            switch (func) {
+                case 'linear':
+                    return rms * 100;
+                case 'quadratic':
+                    return rms * rms * 100;
+                case 'exponential':
+                    return (Math.exp(rms) - 1) / (Math.E - 1) * 100;
+                case 'logarithmic':
+                    return Math.log(1 + rms * 9) / Math.log(10) * 100;
+                case 'geometric':
+                    return Math.pow(rms, 0.5) * 100; // Square root for geometric
+                case 'custom':
+                    return Math.pow(rms, 0.5) * 100; // Custom curve
+                default:
+                    return rms * 100;
+            }
+        }
+
+        // Helper to format time for chart axis
+        function formatTimeLabel(timestamp) {
+            const date = new Date(timestamp);
+            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+
+        const SETTINGS_KEY = 'nivel_mic_settings';
+
+        function saveSettings() {
+            const settings = {
+                volumeFunction: document.getElementById('volumeFunction')?.value,
+                updateInterval: document.getElementById('updateInterval')?.value,
+                noiseThreshold: document.getElementById('noiseThreshold')?.value,
+                averageWindow: document.getElementById('averageWindow')?.value,
+                volumeGain: document.getElementById('volumeGain')?.value,
+            };
+            try {
+                localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+            } catch (e) {
+                console.warn('Não foi possível salvar as configurações:', e);
+            }
+        }
+
+        function loadSettings() {
+            try {
+                const raw = localStorage.getItem(SETTINGS_KEY);
+                if (!raw) return;
+                const settings = JSON.parse(raw);
+                if (settings.volumeFunction) document.getElementById('volumeFunction').value = settings.volumeFunction;
+                if (settings.updateInterval) document.getElementById('updateInterval').value = settings.updateInterval;
+                if (settings.noiseThreshold) document.getElementById('noiseThreshold').value = settings.noiseThreshold;
+                if (settings.averageWindow) document.getElementById('averageWindow').value = settings.averageWindow;
+                if (settings.volumeGain) document.getElementById('volumeGain').value = settings.volumeGain;
+            } catch (e) {
+                console.warn('Não foi possível carregar as configurações:', e);
+            }
+        }
+
+        loadSettings();
+
+        // Persistindo configurações ao mudar
+        ['volumeFunction', 'updateInterval', 'noiseThreshold', 'averageWindow', 'volumeGain'].forEach(id => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.addEventListener('change', saveSettings);
+        });
+
+        async function getMicLevel() {
+            try {
+                
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+                const audioContext = new AudioContext();
+
+                const mediaStreamAudioSourceNode = audioContext.createMediaStreamSource(stream);
+
+                // Cria um AnalyserNode para obter os dados de áudio
+                const analyserNode = audioContext.createAnalyser();
+                // Define o tamanho da FFT (Fast Fourier Transform) para obter mais ou menos detalhes do áudio. 512 é um valor comum para análise de volume. Deve ser uma potência de 2 entre 32 e 32768. Quanto maior, mais detalhado, mas mais processamento.
+                analyserNode.fftSize = 512;
+
+                // Conecta a fonte de áudio ao AnalyserNode
+                mediaStreamAudioSourceNode.connect(analyserNode);
+
+                // Array para armazenar os dados de áudio do AnalyserNode. O tamanho deve ser igual ao fftSize definido acima.
+                const pcmData = new Float32Array(analyserNode.fftSize);
+
+                // Histórico de valores recentes para cálculo da média móvel
+                const recentVolumes = [];
+                let smoothedAverage = 0; // para suavizar a média e evitar barras muito instáveis
+
+                // Histórico para o gráfico
+                const historyData = [];
+                const historyMaxMs = 2 * 60 * 60 * 1000; // 2 hours
+                let lastChartUpdate = 0;
+
+                const chartCtx = document.getElementById('historyChart').getContext('2d');
+                const historyChart = new Chart(chartCtx, {
+                    type: 'line',
+                    data: {
+                        datasets: [{
+                            label: 'Volume (%)',
+                            data: [],
+                            borderColor: 'rgba(13, 110, 253, 0.9)',
+                            backgroundColor: 'rgba(13, 110, 253, 0.2)',
+                            tension: 0.25,
+                            pointRadius: 0,
+                            borderWidth: 2,
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            x: {
+                                type: 'linear',
+                                title: { display: true, text: 'Hora' },
+                                ticks: {
+                                    callback: (value) => formatTimeLabel(value),
+                                    maxRotation: 0,
+                                    autoSkip: true,
+                                    maxTicksLimit: 8,
+                                }
+                            },
+                            y: {
+                                min: 0,
+                                max: 100,
+                                title: { display: true, text: 'Volume %' }
+                            }
+                        },
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: { callbacks: { label: (ctx) => `${ctx.parsed.y.toFixed(1)}%` } }
+                        },
+                        animation: false,
+                        maintainAspectRatio: false,
+                    }
+                });
+
+               
+                const onFrame = () => {
+                    // Obtém os dados de áudio atuais do AnalyserNode. Isso preenche o array pcmData com os valores de amplitude do áudio.
+                    analyserNode.getFloatTimeDomainData(pcmData);
+
+                    // Calcular o nível RMS do áudio
+                    const rms = calculateRmsLevel(pcmData);
+
+                    // Obtém a função de volume selecionada pelo usuário
+                    const func = document.getElementById('volumeFunction').value;
+
+                    // Aplica a função de volume selecionada para obter a porcentagem de volume
+                    const volume = applyVolumeFunction(rms, func);
+
+                    // Atualiza o texto de saída do volume em tempo real
+                    const volumeOutput = document.getElementById('volumeOutput');
+                    volumeOutput.innerHTML = `Volume: <span class="counter">${volume.toFixed(2).padStart(5, '0')}</span>% (atual)`;
+
+                    // Atualiza a barra de volume instantâneo com cor e altura baseadas no volume
+                    const volumeBar = document.getElementById('volumeBar');
+                    volumeBar.style.height = volume + '%';
+                    const hue = 120 - (volume / 100) * 120;
+                    volumeBar.style.backgroundColor = `hsl(${hue}, 100%, 50%)`;
+
+                    // Armazena o valor recente para cálculo da média móvel
+                    const now = performance.now();
+                    const nowTime = Date.now();
+                    recentVolumes.push({ time: now, value: volume });
+
+                    // Limpa o histórico para manter apenas a janela configurada
+                    const windowMillis = parseInt(document.getElementById('averageWindow').value, 10) * 1000;
+                    while (recentVolumes.length > 0 && now - recentVolumes[0].time > windowMillis) {
+                        recentVolumes.shift();
+                    }
+
+                    // Calcula a média dos volumes recentes para a barra de média e o gráfico
+                    const average = recentVolumes.length === 0
+                        ? volume
+                        : recentVolumes.reduce((sum, entry) => sum + entry.value, 0) / recentVolumes.length;
+
+                    // Suaviza a média para evitar mudanças bruscas na barra de média e no gráfico
+                    const alpha = 0.2;
+                    smoothedAverage += (average - smoothedAverage) * alpha;
+
+                    // Armazena o valor suavizado no histórico para o gráfico
+                    historyData.push({ x: nowTime, y: smoothedAverage });
+                    while (historyData.length && nowTime - historyData[0].x > historyMaxMs) {
+                        historyData.shift();
+                    }
+
+                    // Atualiza o gráfico apenas se tiver passado um tempo suficiente desde a última atualização para evitar sobrecarga de renderização
+                    if (nowTime - lastChartUpdate > 1000) {
+                        historyChart.data.datasets[0].data = historyData.slice();
+                        historyChart.update('none');
+                        lastChartUpdate = nowTime;
+                    }
+
+                    // Obtém o limite de ruído aceitável configurado pelo usuário para comparar com a média e fornecer feedback visual
+                    const threshold = parseFloat(document.getElementById('noiseThreshold').value) || 30;
+
+                    // Atualiza o texto de saída da média com a porcentagem e um status indicando se está aceitável ou se é necessário reduzir o ruído
+                    const averageOutput = document.getElementById('averageOutput');
+                    const status = smoothedAverage <= threshold ? 'aceitável' : 'Reduza o ruído';
+                    averageOutput.textContent = `Média (${document.getElementById('averageWindow').value}s): ${smoothedAverage.toFixed(2).padStart(5, '0')}% - ${status}`;
+
+                    if (status === 'Reduza o ruído') {
+                        averageOutput.classList.add('text-danger');
+                        averageOutput.classList.remove('text-muted');
+                        document.getElementById('Shhh').textContent = 'Shhh!!!';
+                    } else {
+                        averageOutput.classList.remove('text-danger');
+                        averageOutput.classList.add('text-muted');
+                        document.getElementById('Shhh').textContent = '';
+                    }
+
+                    // Update average bar (same scale / function used above)
+                    const averageBar = document.getElementById('averageBar');
+                    averageBar.style.height = smoothedAverage + '%';
+                    averageBar.style.backgroundColor = `hsl(${120 - (smoothedAverage / 100) * 120}, 100%, 50%)`;
+
+                    // Get update interval and schedule next frame
+                    const interval = parseInt(document.getElementById('updateInterval').value);
+                    setTimeout(onFrame, interval);
+                };
+
+                // Start the loop
+                const initialInterval = parseInt(document.getElementById('updateInterval').value);
+                setTimeout(onFrame, initialInterval);
+
+            } catch (e) {
+                console.error('Failed to get microphone input:', e);
+            }
+        }
+
+        getMicLevel();
+
+    </script>
+</body>
+
+</html>
