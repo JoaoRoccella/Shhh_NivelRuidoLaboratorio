@@ -112,11 +112,11 @@
             for (const amplitude of dataArray) {
                 sumSquares += amplitude * amplitude * (parseFloat(document.getElementById('volumeGain').value) / 100); // Apply gain
             }
-            // RMS is the square root of the mean of the squares of the samples
+            // RMS é a raiz quadrada da média dos quadrados das amostras, o que dá uma medida de potência do sinal
             return Math.sqrt(sumSquares / dataArray.length);
         }
 
-        // Function to apply selected volume transformation
+        // Função para aplicar a função de volume selecionada pelo usuário ao valor RMS calculado, convertendo-o em uma porcentagem de volume percebido
         function applyVolumeFunction(rms, func) {
             switch (func) {
                 case 'linear':
@@ -128,15 +128,15 @@
                 case 'logarithmic':
                     return Math.log(1 + rms * 9) / Math.log(10) * 100;
                 case 'geometric':
-                    return Math.pow(rms, 0.5) * 100; // Square root for geometric
+                    return Math.pow(rms, 0.5) * 100; // Raiz quadrada para escala geométrica
                 case 'custom':
-                    return Math.pow(rms, 0.5) * 100 * 1.5; // Custom curve
+                    return Math.pow(rms, 0.5) * 100 * 1.5; // Curva personalizada
                 default:
                     return rms * 100;
             }
         }
 
-        // Helper to format time for chart axis
+        // Helper para formatar os rótulos do eixo X do gráfico de histórico para mostrar a hora de forma legível, convertendo o timestamp em um formato de hora local
         function formatTimeLabel(timestamp) {
             const date = new Date(timestamp);
             return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -190,7 +190,7 @@
             shhhPlaying = true;
 
             const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            const duration = 1.5; // Duração em segundos
+            const duration = 2.5; // Duração em segundos
             const sampleRate = audioCtx.sampleRate;
             const numSamples = duration * sampleRate;
             const buffer = audioCtx.createBuffer(1, numSamples, sampleRate);
@@ -203,10 +203,10 @@
                 data[i] = (Math.random() * 2 - 1) * 0.05 * fade; // Ruído baixo volume
             }
 
-            // Aplica filtro passa-baixo para soar como shushing
+            // Aplica filtro passa-alta para soar como "shhh"
             const filter = audioCtx.createBiquadFilter();
             filter.type = 'highpass';
-            filter.frequency.setValueAtTime(5500, audioCtx.currentTime); // Frequência baixa
+            filter.frequency.setValueAtTime(5500, audioCtx.currentTime); // Frequência alta
             filter.Q.setValueAtTime(3, audioCtx.currentTime);
 
             // Cria source e conecta
