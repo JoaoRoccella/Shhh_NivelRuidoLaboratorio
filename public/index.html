@@ -26,7 +26,7 @@
                 <div class="border rounded" style="width: 56px; height: 220px; position: relative; background: #f8f9fa;">
                     <div id="volumeBar" style="width: 100%; height: 0%; background-color: hsl(120, 100%, 50%); position: absolute; bottom: 0; transition: height 0.2s ease, background-color 0.2s ease;"></div>
                 </div>
-                <small class="mt-2 text-muted">Instantâneo</small>
+                <small class="mt-2 text-muted">Atual</small>
             </div>
             <div class="d-flex flex-column align-items-center" style="flex: 0 0 auto;">
                 <div class="border rounded" style="width: 56px; height: 220px; position: relative; background: #f8f9fa;">
@@ -130,7 +130,7 @@
                 case 'geometric':
                     return Math.pow(rms, 0.5) * 100; // Square root for geometric
                 case 'custom':
-                    return Math.pow(rms, 0.5) * 100; // Custom curve
+                    return Math.pow(rms, 0.5) * 100 * 1.5; // Custom curve
                 default:
                     return rms * 100;
             }
@@ -183,6 +183,47 @@
             el.addEventListener('change', saveSettings);
         });
 
+        // Função para sintetizar e tocar o som de "Shhh!!!"
+        let shhhPlaying = false;
+        function playShhhSound() {
+            if (shhhPlaying) return; // Evita tocar múltiplas vezes simultaneamente
+            shhhPlaying = true;
+
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const duration = 1.5; // Duração em segundos
+            const sampleRate = audioCtx.sampleRate;
+            const numSamples = duration * sampleRate;
+            const buffer = audioCtx.createBuffer(1, numSamples, sampleRate);
+            const data = buffer.getChannelData(0);
+
+            // Gera ruído branco com fade in/out para simular "Shhh!!!"
+            for (let i = 0; i < numSamples; i++) {
+                const t = i / sampleRate; // Tempo em segundos
+                const fade = Math.min(t * 4, (duration - t) * 4, 1); // Fade in/out
+                data[i] = (Math.random() * 2 - 1) * 0.05 * fade; // Ruído baixo volume
+            }
+
+            // Aplica filtro passa-baixo para soar como shushing
+            const filter = audioCtx.createBiquadFilter();
+            filter.type = 'highpass';
+            filter.frequency.setValueAtTime(5500, audioCtx.currentTime); // Frequência baixa
+            filter.Q.setValueAtTime(3, audioCtx.currentTime);
+
+            // Cria source e conecta
+            const source = audioCtx.createBufferSource();
+            source.buffer = buffer;
+            source.connect(filter);
+            filter.connect(audioCtx.destination);
+
+            // Toca o som
+            source.start();
+
+            // Libera após tocar
+            source.onended = () => {
+                shhhPlaying = false;
+            };
+        }
+
         async function getMicLevel() {
             try {
                 
@@ -211,6 +252,9 @@
                 const historyData = [];
                 const historyMaxMs = 2 * 60 * 60 * 1000; // 2 hours
                 let lastChartUpdate = 0;
+
+                // Flag para controlar se o som de Shhh já foi tocado no estado atual
+                let wasAboveThreshold = false;
 
                 const chartCtx = document.getElementById('historyChart').getContext('2d');
                 const historyChart = new Chart(chartCtx, {
@@ -314,12 +358,19 @@
                     // Obtém o limite de ruído aceitável configurado pelo usuário para comparar com a média e fornecer feedback visual
                     const threshold = parseFloat(document.getElementById('noiseThreshold').value) || 30;
 
+                    // Verifica se está acima do threshold para tocar o som de Shhh
+                    const isAboveThreshold = smoothedAverage > threshold;
+                    if (isAboveThreshold && !wasAboveThreshold) {
+                        playShhhSound();
+                    }
+                    wasAboveThreshold = isAboveThreshold;
+
                     // Atualiza o texto de saída da média com a porcentagem e um status indicando se está aceitável ou se é necessário reduzir o ruído
                     const averageOutput = document.getElementById('averageOutput');
-                    const status = smoothedAverage <= threshold ? 'aceitável' : 'Reduza o ruído';
+                    const status = isAboveThreshold ? 'Reduza o ruído' : 'aceitável';
                     averageOutput.textContent = `Média (${document.getElementById('averageWindow').value}s): ${smoothedAverage.toFixed(2).padStart(5, '0')}% - ${status}`;
 
-                    if (status === 'Reduza o ruído') {
+                    if (isAboveThreshold) {
                         averageOutput.classList.add('text-danger');
                         averageOutput.classList.remove('text-muted');
                         document.getElementById('Shhh').textContent = 'Shhh!!!';
