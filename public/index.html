@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-BR">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>Shhh!!! Medidor de Nível de Ruído</title>
     <!-- Bootstrap 5 -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
     <link rel="stylesheet" href="style.css">
@@ -102,6 +102,12 @@
                         <option value="150">150%</option>
                     </select>
                 </div>
+                <div class="col-12 col-md-6">
+                    <div class="form-check mt-4">
+                        <input type="checkbox" id="enableShhhSound" class="form-check-input">
+                        <label for="enableShhhSound" class="form-check-label">Habilitar som Shhh!</label>
+                    </div>
+                </div>
             </div>
         </details>
     </div>
@@ -110,7 +116,7 @@
         function calculateRmsLevel(dataArray) {
             let sumSquares = 0.0;
             for (const amplitude of dataArray) {
-                sumSquares += amplitude * amplitude * (parseFloat(document.getElementById('volumeGain').value) / 100); // Apply gain
+                sumSquares += amplitude * amplitude * (parseFloat(document.getElementById('volumeGain').value) / 100); // Aplica ganho ao cálculo do RMS para amplificar ou atenuar o nível de volume percebido com base na configuração do usuário
             }
             // RMS é a raiz quadrada da média dos quadrados das amostras, o que dá uma medida de potência do sinal
             return Math.sqrt(sumSquares / dataArray.length);
@@ -151,6 +157,7 @@
                 noiseThreshold: document.getElementById('noiseThreshold')?.value,
                 averageWindow: document.getElementById('averageWindow')?.value,
                 volumeGain: document.getElementById('volumeGain')?.value,
+                enableShhhSound: document.getElementById('enableShhhSound')?.checked || false,
             };
             try {
                 localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
@@ -169,6 +176,7 @@
                 if (settings.noiseThreshold) document.getElementById('noiseThreshold').value = settings.noiseThreshold;
                 if (settings.averageWindow) document.getElementById('averageWindow').value = settings.averageWindow;
                 if (settings.volumeGain) document.getElementById('volumeGain').value = settings.volumeGain;
+                if (settings.enableShhhSound !== undefined) document.getElementById('enableShhhSound').checked = settings.enableShhhSound;
             } catch (e) {
                 console.warn('Não foi possível carregar as configurações:', e);
             }
@@ -177,7 +185,7 @@
         loadSettings();
 
         // Persistindo configurações ao mudar
-        ['volumeFunction', 'updateInterval', 'noiseThreshold', 'averageWindow', 'volumeGain'].forEach(id => {
+        ['volumeFunction', 'updateInterval', 'noiseThreshold', 'averageWindow', 'volumeGain', 'enableShhhSound'].forEach(id => {
             const el = document.getElementById(id);
             if (!el) return;
             el.addEventListener('change', saveSettings);
@@ -190,7 +198,7 @@
             shhhPlaying = true;
 
             const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            const duration = 2.5; // Duração em segundos
+            const duration = 1.5; // Duração em segundos
             const sampleRate = audioCtx.sampleRate;
             const numSamples = duration * sampleRate;
             const buffer = audioCtx.createBuffer(1, numSamples, sampleRate);
@@ -206,8 +214,8 @@
             // Aplica filtro passa-alta para soar como "shhh"
             const filter = audioCtx.createBiquadFilter();
             filter.type = 'highpass';
-            filter.frequency.setValueAtTime(5500, audioCtx.currentTime); // Frequência alta
-            filter.Q.setValueAtTime(3, audioCtx.currentTime);
+            filter.frequency.setValueAtTime(4000, audioCtx.currentTime); // Frequência alta
+            filter.Q.setValueAtTime(15, audioCtx.currentTime);
 
             // Cria source e conecta
             const source = audioCtx.createBufferSource();
@@ -361,7 +369,10 @@
                     // Verifica se está acima do threshold para tocar o som de Shhh
                     const isAboveThreshold = smoothedAverage > threshold;
                     if (isAboveThreshold && !wasAboveThreshold) {
-                        playShhhSound();
+                        const enableSound = document.getElementById('enableShhhSound').checked;
+                        if (enableSound) {
+                            playShhhSound();
+                        }
                     }
                     wasAboveThreshold = isAboveThreshold;
 
@@ -373,24 +384,24 @@
                     if (isAboveThreshold) {
                         averageOutput.classList.add('text-danger');
                         averageOutput.classList.remove('text-muted');
-                        document.getElementById('Shhh').textContent = 'Shhh!!!';
+                        document.getElementById('Shhh').textContent = '🤫Shhh!!!';
                     } else {
                         averageOutput.classList.remove('text-danger');
                         averageOutput.classList.add('text-muted');
                         document.getElementById('Shhh').textContent = '';
                     }
 
-                    // Update average bar (same scale / function used above)
+                    // Atualiza a barra de média com altura e cor baseadas na média suavizada, usando uma escala de cor que vai do verde ao vermelho para indicar visualmente o nível de ruído em relação ao limite aceitável
                     const averageBar = document.getElementById('averageBar');
                     averageBar.style.height = smoothedAverage + '%';
                     averageBar.style.backgroundColor = `hsl(${120 - (smoothedAverage / 100) * 120}, 100%, 50%)`;
 
-                    // Get update interval and schedule next frame
+                    // Obtém o intervalo de atualização configurado pelo usuário para determinar quando chamar onFrame novamente, permitindo que o usuário controle a frequência de atualização do áudio e do gráfico para equilibrar entre responsividade e desempenho
                     const interval = parseInt(document.getElementById('updateInterval').value);
                     setTimeout(onFrame, interval);
                 };
 
-                // Start the loop
+                // Inicia o loop de atualização chamando onFrame pela primeira vez após um pequeno atraso para garantir que tudo esteja configurado corretamente. O intervalo inicial é obtido da configuração do usuário para garantir que a primeira atualização ocorra no tempo correto.
                 const initialInterval = parseInt(document.getElementById('updateInterval').value);
                 setTimeout(onFrame, initialInterval);
 
