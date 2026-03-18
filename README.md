@@ -2,6 +2,8 @@
 
 Este projeto é um medidor de nível de ruído desenvolvido para ajudar a manter um ambiente de trabalho ou estudo silencioso. Ele utiliza a API Web Audio para acessar o microfone do usuário, medir o nível de ruído em tempo real e fornecer feedback visual e sonoro quando o nível de ruído ultrapassa um limite configurável.
 
+Acesse aqui: <https://joaoroccella.github.io/Shhh_NivelRuidoLaboratorio/>
+
 Para usar o medidor localmente, siga as instruções abaixo:
 
 1. Clone este repositório ou baixe os arquivos para o seu computador.
